@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const STROKE = '#2e4258';
-const STROKE_FG = '#4a6480';
-const STROKE_ACCENT = '#B6FF3B';
-const TRACK_COLOR = '#B6FF3B';
+// ── New palette ──────────────────────────────────────────────────
+const STROKE = '#1a2535';
+const STROKE_FG = '#2a3f5a';
+const STROKE_ACCENT = '#2e6ef5';
+const TRACK_COLOR = 'rgba(46,110,245,0.6)';
 
 const centerX = 250;
 const centerY = 250;
@@ -208,26 +209,26 @@ export default function VaultHero() {
   return (
     <section
       ref={heroRef}
-      style={{ opacity: 0 }}
-      className="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0C1A2B]"
+      style={{ opacity: 0, background: '#050608' }}
+      className="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
     >
-      {/* Dot grid */}
+      {/* Dot grid — more subtle */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(circle, #1e1e1e 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 
       {/* Vignette */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 75% 75% at 50% 50%, transparent 25%, rgba(4,4,4,0.9) 100%)' }} />
+        style={{ background: 'radial-gradient(ellipse 75% 75% at 50% 50%, transparent 25%, rgba(5,6,8,0.95) 100%)' }} />
 
-      {/* Inner glow */}
+      {/* Very subtle blue inner glow — restrained */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 50%, rgba(182,255,59,0.05) 0%, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(ellipse 45% 35% at 50% 50%, rgba(46,110,245,0.04) 0%, transparent 70%)' }} />
 
       {/* DEEP LAYER */}
       <div ref={vaultBgRef} className="absolute inset-0 flex items-center justify-center pointer-events-none"
         style={{ opacity: 0, willChange: 'transform' }}>
         <svg viewBox="30 30 440 440" xmlns="http://www.w3.org/2000/svg"
-          style={{ width: 'min(110vw, 960px)', height: 'auto', filter: 'drop-shadow(0 0 80px rgba(182,255,59,0.03))' }}>
+          style={{ width: 'min(110vw, 960px)', height: 'auto' }}>
           <circle cx={centerX} cy={centerY} r={outerRingR} fill="none" stroke={STROKE} strokeWidth="2" />
           <circle cx={centerX} cy={centerY} r={outerRingR - 10} fill="none" stroke={STROKE} strokeWidth="0.75" />
           {rivets.map((rv, i) => <circle key={i} cx={rv.cx} cy={rv.cy} r="4" fill="none" stroke={STROKE} strokeWidth="1" />)}
@@ -245,7 +246,7 @@ export default function VaultHero() {
 
       {/* NEAR LAYER */}
       <div ref={vaultFgRef} className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ opacity: 0, willChange: 'transform', filter: 'drop-shadow(0 0 40px rgba(182,255,59,0.08)) drop-shadow(0 0 90px rgba(182,255,59,0.04))' }}>
+        style={{ opacity: 0, willChange: 'transform', filter: 'drop-shadow(0 0 40px rgba(46,110,245,0.06))' }}>
         <svg viewBox="30 30 440 440" xmlns="http://www.w3.org/2000/svg"
           style={{ width: 'min(80vw, 700px)', height: 'auto' }}>
           <circle ref={ringRefs[0]} cx={centerX} cy={centerY} r={outerRingR} fill="none" stroke={STROKE_FG} strokeWidth="2.5" />
@@ -279,7 +280,7 @@ export default function VaultHero() {
             <line key={i}
               x1={TRACK_POINTS[a].cx} y1={TRACK_POINTS[a].cy}
               x2={TRACK_POINTS[b].cx} y2={TRACK_POINTS[b].cy}
-              stroke={TRACK_COLOR} strokeWidth="0.4" opacity="0.2" strokeDasharray="3 4" />
+              stroke={TRACK_COLOR} strokeWidth="0.4" opacity="0.3" strokeDasharray="3 4" />
           ))}
           {TRACK_POINTS.map((pt, i) => {
             const isActive = activePoint === pt.id;
@@ -287,8 +288,8 @@ export default function VaultHero() {
             const cornerLen = 4;
             const bx = pt.cx - boxSize / 2;
             const by = pt.cy - boxSize / 2;
-            const opacity = isActive ? 1 : 0.45;
-            const color = isActive ? '#e8ffaa' : TRACK_COLOR;
+            const opacity = isActive ? 1 : 0.35;
+            const color = isActive ? '#60a5fa' : TRACK_COLOR;
             return (
               <g key={pt.id} opacity={opacity} style={{ transition: 'opacity 0.15s' }}>
                 <path d={`M ${bx + cornerLen} ${by} L ${bx} ${by} L ${bx} ${by + cornerLen}`} fill="none" stroke={color} strokeWidth="0.8" />
@@ -312,9 +313,18 @@ export default function VaultHero() {
 
       {/* TEXT */}
       <div className="relative z-10 flex flex-col items-center text-center px-6 gap-6">
-        <div ref={badgeRef} style={{ opacity: 0, borderColor: '#B6FF3B30', color: '#B6FF3B' }}
-          className="border px-4 py-1.5 font-mono text-xs tracking-[0.25em] uppercase">
-          UI Component Library
+
+        {/* Badge — steel blue, restrained */}
+        <div ref={badgeRef} style={{ opacity: 0 }}>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '11px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: '#2e6ef5',
+          }}>
+            UI Component Library
+          </span>
         </div>
 
         <div ref={headlineRef} style={{ opacity: 0 }}>
@@ -324,63 +334,59 @@ export default function VaultHero() {
             letterSpacing: '0.02em',
             color: '#ffffff',
           }}>THE VAULT</h1>
+          {/* Restrained — no glow, just slightly muted white */}
           <p className="uppercase leading-none mt-2" style={{
             fontFamily: "'Ethnocentric', monospace",
             fontSize: 'clamp(1rem, 3vw, 2.25rem)',
             letterSpacing: '0.08em',
-            color: 'white',
-            textShadow: '0 0 20px #B6FF3B, 0 0 40px #B6FF3B, 0 0 80px rgba(182,255,59,0.5)',
+            color: 'rgba(255,255,255,0.55)',
           }}>BUILT FOR BUILDERS</p>
         </div>
 
-        <p ref={subtextRef} style={{ opacity: 0 }}
-          className="font-mono text-sm text-neutral-500 max-w-md leading-relaxed">
+        <p ref={subtextRef} style={{ opacity: 0, color: '#424a57', fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', maxWidth: '420px', lineHeight: 1.7 }}>
           Free, open UI components — grab the code, ship faster.
         </p>
 
-        <div ref={btnRef} style={{ opacity: 0 }} className="flex items-center gap-4 mt-2">
+        {/* CTA — minimal, steel blue ghost */}
+        <div ref={btnRef} style={{ opacity: 0 }} className="mt-2">
           <button
             onClick={() => document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })}
-            className="relative font-mono text-xs tracking-widest uppercase px-8 py-3 transition-all duration-300 overflow-hidden"
             style={{
-              background: 'repeating-linear-gradient(45deg, #080808, #080808 10px, #0C1A2B 10px, #0C1A2B 20px)',
-              color: '#B6FF3B',
-              border: '1px solid rgba(182,255,59,0.3)',
+              padding: '12px 32px',
+              borderRadius: '100px',
+              border: '1px solid rgba(46,110,245,0.4)',
+              background: 'transparent',
+              color: '#2e6ef5',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '11px',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
             }}
             onMouseEnter={e => {
-              const btn = e.currentTarget;
-              btn.style.background = '#B6FF3B';
-              btn.style.color = '#0C1A2B';
-              btn.style.border = '1px solid #B6FF3B';
-              btn.querySelectorAll<HTMLSpanElement>('.corner').forEach(c => { c.style.opacity = '1'; });
+              e.currentTarget.style.background = 'rgba(46,110,245,0.1)';
+              e.currentTarget.style.borderColor = 'rgba(46,110,245,0.7)';
             }}
             onMouseLeave={e => {
-              const btn = e.currentTarget;
-              btn.style.background = 'repeating-linear-gradient(45deg, #080808, #080808 10px, #0C1A2B 10px, #0C1A2B 20px)';
-              btn.style.color = '#B6FF3B';
-              btn.style.border = '1px solid rgba(182,255,59,0.3)';
-              btn.querySelectorAll<HTMLSpanElement>('.corner').forEach(c => { c.style.opacity = '0'; });
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = 'rgba(46,110,245,0.4)';
             }}
           >
-            <span className="corner absolute top-0.5 left-0.5 w-3 h-3 border-t-2 border-l-2 border-[#0C1A2B] transition-opacity duration-200" style={{ opacity: 0 }} />
-            <span className="corner absolute top-0.5 right-0.5 w-3 h-3 border-t-2 border-r-2 border-[#0C1A2B] transition-opacity duration-200" style={{ opacity: 0 }} />
-            <span className="corner absolute bottom-0.5 left-0.5 w-3 h-3 border-b-2 border-l-2 border-[#0C1A2B] transition-opacity duration-200" style={{ opacity: 0 }} />
-            <span className="corner absolute bottom-0.5 right-0.5 w-3 h-3 border-b-2 border-r-2 border-[#0C1A2B] transition-opacity duration-200" style={{ opacity: 0 }} />
             Browse Components ↓
           </button>
         </div>
       </div>
 
-      {/* Accent lines */}
-      <div className="absolute left-0 top-1/4 w-px h-32 opacity-40 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, transparent, #B6FF3B, transparent)' }} />
-      <div className="absolute right-0 top-1/4 w-px h-32 opacity-40 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, transparent, #B6FF3B, transparent)' }} />
+      {/* Accent lines — very subtle */}
+      <div className="absolute left-0 top-1/3 w-px h-24 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, transparent, rgba(46,110,245,0.2), transparent)' }} />
+      <div className="absolute right-0 top-1/3 w-px h-24 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, transparent, rgba(46,110,245,0.2), transparent)' }} />
 
       {/* Scroll hint */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-        <div className="w-px h-8 opacity-40"
-          style={{ background: 'linear-gradient(to bottom, #B6FF3B, transparent)' }} />
+        <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, rgba(46,110,245,0.3), transparent)' }} />
       </div>
     </section>
   );

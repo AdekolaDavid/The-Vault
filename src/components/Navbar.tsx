@@ -6,9 +6,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 
+const ACCENT = "#2e6ef5";
+const BG = "#050608";
+
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -26,7 +30,13 @@ export default function Navbar() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   async function checkAdminRole(userId: string) {
@@ -47,84 +57,148 @@ export default function Navbar() {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-blue-900/40 bg-[#09090b]/90 backdrop-blur-md">
-      <div className="mx-auto flex h-12 max-w-screen-2xl items-center justify-between px-6">
-
+    <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-6 pt-4">
+      <nav
+        className="flex items-center justify-between w-full transition-all duration-300"
+        style={{
+          maxWidth: "780px",
+          height: "52px",
+          padding: "0 20px",
+          borderRadius: "100px",
+          background: scrolled
+            ? "rgba(5,6,8,0.92)"
+            : "rgba(12,14,18,0.85)",
+          backdropFilter: "blur(16px)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: scrolled
+            ? "0 8px 32px rgba(0,0,0,0.4)"
+            : "0 4px 24px rgba(0,0,0,0.2)",
+        }}
+      >
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 group-hover:text-blue-300 transition-colors">
-            Vault_System
-          </span>
-          <span className="hidden sm:inline-block text-[10px] text-neutral-600 font-mono">/ components</span>
+        <Link
+          href="/"
+          className="font-black uppercase tracking-widest transition-colors duration-200"
+          style={{
+            fontFamily: "'Ethnocentric', monospace",
+            fontSize: "13px",
+            color: "#ffffff",
+            letterSpacing: "0.15em",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
+          onMouseLeave={e => (e.currentTarget.style.color = "#ffffff")}
+        >
+          The Vault
         </Link>
 
+        {/* Center links — admin only */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="text-[11px] font-bold uppercase tracking-widest transition-colors duration-200"
+            style={{ color: "rgba(255,255,255,0.4)", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.1em" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+          >
+            Admin
+          </Link>
+        )}
+
         {/* Right side */}
-        <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="text-[10px] font-black uppercase tracking-widest text-purple-400 hover:text-purple-300 border border-purple-500/40 hover:border-purple-400 px-3 py-1.5 transition-all"
-                >
-                  Admin
-                </Link>
-              )}
-
-              <div className="relative group">
-                <button className="flex items-center justify-center w-7 h-7 bg-blue-600/20 border border-blue-500/50 text-blue-300 text-[10px] font-black uppercase hover:bg-blue-600/40 transition-all">
-                  {initials}
-                </button>
-
-                <div className="absolute right-0 top-full mt-1 w-40 bg-[#09090b] border border-neutral-800 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
-                  <div className="px-3 py-2 border-b border-neutral-800">
-                    <p className="text-[10px] text-neutral-400 font-mono truncate">{user.email}</p>
-                  </div>
-                  <Link
-                    href="/saved"
-                    className="block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-300 hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    Saved Components
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-red-500/5 transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <Link
-              href="/auth"
-              className="relative text-[10px] font-black uppercase tracking-widest px-4 py-1.5 transition-all duration-300 overflow-hidden"
+        {user ? (
+          <div className="relative group">
+            <button
+              className="flex items-center justify-center transition-all duration-200"
               style={{
-                color: '#B6FF3B',
-                border: '1px solid rgba(182,255,59,0.3)',
+                width: "32px",
+                height: "32px",
+                borderRadius: "100px",
+                background: `rgba(46,110,245,0.15)`,
+                border: `1px solid rgba(46,110,245,0.3)`,
+                color: ACCENT,
+                fontSize: "11px",
+                fontWeight: 900,
+                fontFamily: "JetBrains Mono, monospace",
               }}
               onMouseEnter={e => {
-                const el = e.currentTarget;
-                el.style.background = 'repeating-linear-gradient(45deg, #080808, #080808 6px, #0C1A2B 6px, #0C1A2B 12px)';
-                el.style.borderColor = '#B6FF3B';
-                el.querySelectorAll<HTMLSpanElement>('.nav-corner').forEach(c => { c.style.opacity = '1'; });
+                e.currentTarget.style.background = `rgba(46,110,245,0.25)`;
+                e.currentTarget.style.borderColor = `rgba(46,110,245,0.6)`;
               }}
               onMouseLeave={e => {
-                const el = e.currentTarget;
-                el.style.background = 'transparent';
-                el.style.borderColor = 'rgba(182,255,59,0.3)';
-                el.querySelectorAll<HTMLSpanElement>('.nav-corner').forEach(c => { c.style.opacity = '0'; });
+                e.currentTarget.style.background = `rgba(46,110,245,0.15)`;
+                e.currentTarget.style.borderColor = `rgba(46,110,245,0.3)`;
               }}
             >
-              <span className="nav-corner absolute top-0.5 left-0.5 w-2 h-2 border-t border-l border-[#B6FF3B] transition-opacity duration-200" style={{ opacity: 0 }} />
-              <span className="nav-corner absolute top-0.5 right-0.5 w-2 h-2 border-t border-r border-[#B6FF3B] transition-opacity duration-200" style={{ opacity: 0 }} />
-              <span className="nav-corner absolute bottom-0.5 left-0.5 w-2 h-2 border-b border-l border-[#B6FF3B] transition-opacity duration-200" style={{ opacity: 0 }} />
-              <span className="nav-corner absolute bottom-0.5 right-0.5 w-2 h-2 border-b border-r border-[#B6FF3B] transition-opacity duration-200" style={{ opacity: 0 }} />
-              Sign In
-            </Link>
-          )}
-        </div>
-      </div>
+              {initials}
+            </button>
+
+            {/* Dropdown */}
+            <div
+              className="absolute right-0 top-full mt-3 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150"
+              style={{
+                background: "#0c0e12",
+                border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: "12px",
+                overflow: "hidden",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              }}
+            >
+              <div
+                className="px-4 py-3"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <p
+                  className="text-[10px] truncate"
+                  style={{ color: "rgba(255,255,255,0.35)", fontFamily: "JetBrains Mono, monospace" }}
+                >
+                  {user.email}
+                </p>
+              </div>
+              <Link
+                href="/saved"
+                className="block px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors"
+                style={{ color: "rgba(255,255,255,0.6)", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.08em" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
+              >
+                Saved
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors"
+                style={{ color: "rgba(239,68,68,0.7)", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.08em" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(239,68,68,0.7)")}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Link
+            href="/auth"
+            className="text-[11px] font-bold uppercase tracking-widest transition-all duration-200"
+            style={{
+              padding: "8px 18px",
+              borderRadius: "100px",
+              border: `1px solid rgba(46,110,245,0.4)`,
+              color: ACCENT,
+              fontFamily: "JetBrains Mono, monospace",
+              letterSpacing: "0.1em",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "rgba(46,110,245,0.12)";
+              e.currentTarget.style.borderColor = `rgba(46,110,245,0.7)`;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = `rgba(46,110,245,0.4)`;
+            }}
+          >
+            Sign In
+          </Link>
+        )}
+      </nav>
     </header>
   );
 }
