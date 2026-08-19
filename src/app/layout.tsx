@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vault_System — UI Components",
-  description: "Production-grade UI components. Free to grab, no signup needed.",
+  title: "The Vault — UI Components",
+  description: "Free UI components. Grab the code, ship faster.",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-950 text-white font-sans">
+      <body className="min-h-full flex flex-col bg-[#050608] text-white font-sans">
         <Navbar />
         {children}
       </body>
