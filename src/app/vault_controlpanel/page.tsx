@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { verifyAdminPassword } from "./actions";
 
@@ -13,10 +13,12 @@ const CARD = "#0c0e12";
 const ACCENT = "#2e6ef5";
 const MUTED = "#424a57";
 const TEXT = "#ffffff";
+const DANGER = "#ef4444";
 const MONO = "JetBrains Mono, monospace";
 
 const MAX_ATTEMPTS = 3;
 const SESSION_KEY = "vault_admin_unlocked";
+const CONFIRM_WINDOW_MS = 3000;
 
 const inputStyle = {
   width: "100%",
@@ -41,6 +43,22 @@ const labelStyle = {
   color: MUTED,
   marginBottom: "8px",
 };
+
+const pillStyle = (variant: "neutral" | "accent" | "muted") => ({
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "3px 10px",
+  borderRadius: "999px",
+  fontSize: "9px",
+  fontFamily: MONO,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase" as const,
+  border: `1px solid ${variant === "accent" ? "rgba(46,110,245,0.3)" : "rgba(255,255,255,0.08)"}`,
+  background: variant === "accent" ? "rgba(46,110,245,0.08)" : "rgba(255,255,255,0.03)",
+  color: variant === "accent" ? ACCENT : variant === "muted" ? MUTED : "rgba(255,255,255,0.7)",
+  whiteSpace: "nowrap" as const,
+});
 
 // ─── PASSWORD GATE ─────────────────────────────────────────────────
 function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
@@ -115,7 +133,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
               borderRadius: "8px",
               background: "rgba(239,68,68,0.08)",
               border: "1px solid rgba(239,68,68,0.2)",
-              color: "#ef4444",
+              color: DANGER,
               fontFamily: MONO,
               letterSpacing: "0.06em",
             }}
@@ -196,8 +214,8 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-// ─── ADMIN PANEL ───────────────────────────────────────────────────
-function AdminPanel() {
+// ─── ADD COMPONENT VIEW ────────────────────────────────────────────
+function AddComponentView() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [styleSystem, setStyleSystem] = useState(STYLE_SYSTEMS[2]);
@@ -251,55 +269,12 @@ function AdminPanel() {
 </html>`;
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: OBSIDIAN, color: TEXT, fontFamily: MONO }}
-    >
+    <div className="flex h-full overflow-hidden">
       {/* LEFT PANEL */}
       <div
         className="flex flex-col w-1/2 h-full"
         style={{ borderRight: "1px solid rgba(255,255,255,0.05)" }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-8 py-5 shrink-0"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-        >
-          <div className="flex items-center gap-4">
-            <a
-              href="/"
-              style={{ color: MUTED, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", textDecoration: "none" }}
-              onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-              onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
-            >
-              ← Gallery
-            </a>
-            <span style={{ color: "rgba(255,255,255,0.08)" }}>|</span>
-            <h1
-              style={{
-                fontFamily: "'Ethnocentric', monospace",
-                fontSize: "14px",
-                letterSpacing: "0.1em",
-                color: TEXT,
-                textTransform: "uppercase",
-              }}
-            >
-              Add Component
-            </h1>
-          </div>
-          <div
-            className="flex items-center gap-2"
-            style={{ fontSize: "10px", color: MUTED, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ background: ACCENT }}
-            />
-            Admin
-          </div>
-        </div>
-
-        {/* Scrollable form */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           <form id="vault-form" onSubmit={handleSave} className="flex flex-col gap-5">
 
@@ -412,7 +387,7 @@ function AdminPanel() {
                 letterSpacing: "0.06em",
                 background: message.type === "success" ? "rgba(46,110,245,0.08)" : "rgba(239,68,68,0.08)",
                 border: `1px solid ${message.type === "success" ? "rgba(46,110,245,0.2)" : "rgba(239,68,68,0.2)"}`,
-                color: message.type === "success" ? ACCENT : "#ef4444",
+                color: message.type === "success" ? ACCENT : DANGER,
               }}
             >
               {message.text}
@@ -492,13 +467,268 @@ function AdminPanel() {
   );
 }
 
+// ─── MANAGE VIEW ───────────────────────────────────────────────────
+type VaultComponentRow = {
+  id: string;
+  title: string;
+  category: string;
+  style_system: string;
+  interaction_type: string;
+};
+
+function ManageView() {
+  const [components, setComponents] = useState<VaultComponentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const confirmTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchComponents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from("components")
+      .select("id, title, category, style_system, interaction_type")
+      .order("title", { ascending: true });
+
+    if (error) setError(error.message);
+    else setComponents(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchComponents();
+    return () => {
+      if (confirmTimeout.current) clearTimeout(confirmTimeout.current);
+    };
+  }, [fetchComponents]);
+
+  function armOrDelete(id: string) {
+    if (confirmingId === id) {
+      if (confirmTimeout.current) clearTimeout(confirmTimeout.current);
+      setConfirmingId(null);
+      void performDelete(id);
+      return;
+    }
+    if (confirmTimeout.current) clearTimeout(confirmTimeout.current);
+    setConfirmingId(id);
+    confirmTimeout.current = setTimeout(() => setConfirmingId(null), CONFIRM_WINDOW_MS);
+  }
+
+  async function performDelete(id: string) {
+    setDeletingId(id);
+    setError(null);
+    const previous = components;
+    setComponents(list => list.filter(c => c.id !== id)); // optimistic
+
+    const { error } = await supabase.from("components").delete().eq("id", id);
+
+    if (error) {
+      setComponents(previous); // revert on failure
+      setError(`Failed to delete: ${error.message}`);
+    }
+    setDeletingId(null);
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-8 py-6">
+      {loading && (
+        <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Loading components...
+        </p>
+      )}
+
+      {!loading && error && (
+        <div
+          role="alert"
+          className="mb-4 px-4 py-3 text-[11px] flex items-center justify-between"
+          style={{
+            borderRadius: "8px",
+            fontFamily: MONO,
+            letterSpacing: "0.06em",
+            background: "rgba(239,68,68,0.08)",
+            border: "1px solid rgba(239,68,68,0.2)",
+            color: DANGER,
+          }}
+        >
+          <span>{error}</span>
+          <button
+            onClick={fetchComponents}
+            style={{ color: DANGER, textDecoration: "underline", background: "none", border: "none", cursor: "pointer", fontFamily: MONO, fontSize: "11px" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && components.length === 0 && (
+        <div className="flex flex-col items-center justify-center h-full text-center">
+          <p style={{ fontFamily: MONO, fontSize: "12px", color: MUTED, letterSpacing: "0.06em" }}>
+            No components in the vault yet.
+          </p>
+        </div>
+      )}
+
+      {!loading && components.length > 0 && (
+        <div className="flex flex-col gap-3 max-w-3xl" aria-live="polite">
+          {components.map(comp => {
+            const isConfirming = confirmingId === comp.id;
+            const isDeleting = deletingId === comp.id;
+            return (
+              <div
+                key={comp.id}
+                className="flex items-center justify-between gap-4 px-5 py-4"
+                style={{
+                  background: CARD,
+                  border: `1px solid ${isConfirming ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: "10px",
+                  transition: "border-color 0.2s, opacity 0.2s",
+                  opacity: isDeleting ? 0.5 : 1,
+                }}
+              >
+                <div className="flex flex-col gap-2 min-w-0">
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontFamily: MONO,
+                      fontWeight: 600,
+                      color: TEXT,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {comp.title}
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span style={pillStyle("neutral")}>{comp.category}</span>
+                    <span style={pillStyle("accent")}>{comp.style_system}</span>
+                    <span style={pillStyle("muted")}>{comp.interaction_type}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => armOrDelete(comp.id)}
+                  disabled={isDeleting}
+                  aria-label={isConfirming ? `Confirm delete of ${comp.title}` : `Delete ${comp.title}`}
+                  className="shrink-0 transition-all duration-150"
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    border: `1px solid ${isConfirming ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.08)"}`,
+                    background: isConfirming ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.02)",
+                    color: isConfirming ? DANGER : MUTED,
+                    fontFamily: MONO,
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    cursor: isDeleting ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isDeleting ? "Deleting..." : isConfirming ? "Confirm?" : "Delete"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ADMIN SHELL (shared header + tabs) ─────────────────────────────
+function AdminShell() {
+  const [tab, setTab] = useState<"add" | "manage">("add");
+
+  return (
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      style={{ background: OBSIDIAN, color: TEXT, fontFamily: MONO }}
+    >
+      <div
+        className="flex items-center justify-between px-8 py-5 shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <div className="flex items-center gap-4">
+          <a
+            href="/"
+            style={{ color: MUTED, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", textDecoration: "none" }}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+          >
+            ← Gallery
+          </a>
+          <span style={{ color: "rgba(255,255,255,0.08)" }}>|</span>
+          <h1
+            style={{
+              fontFamily: "'Ethnocentric', monospace",
+              fontSize: "14px",
+              letterSpacing: "0.1em",
+              color: TEXT,
+              textTransform: "uppercase",
+            }}
+          >
+            The Vault
+          </h1>
+        </div>
+
+        <div
+          className="flex items-center gap-1 p-1"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "10px" }}
+        >
+          {(["add", "manage"] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              aria-pressed={tab === t}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "7px",
+                border: "none",
+                background: tab === t ? "rgba(46,110,245,0.12)" : "transparent",
+                color: tab === t ? ACCENT : MUTED,
+                fontFamily: MONO,
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                transition: "background 0.15s, color 0.15s",
+              }}
+            >
+              {t === "add" ? "Add Component" : "Manage"}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className="flex items-center gap-2"
+          style={{ fontSize: "10px", color: MUTED, letterSpacing: "0.1em", textTransform: "uppercase" }}
+        >
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{ background: ACCENT }}
+          />
+          Admin
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {tab === "add" ? <AddComponentView /> : <ManageView />}
+      </div>
+    </div>
+  );
+}
+
 // ─── PAGE ──────────────────────────────────────────────────────────
 export default function VaultAdminPage() {
   const [unlocked, setUnlocked] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if already unlocked this session
     const isUnlocked = sessionStorage.getItem(SESSION_KEY) === "1";
     setUnlocked(isUnlocked);
     setChecking(false);
@@ -510,5 +740,5 @@ export default function VaultAdminPage() {
     return <PasswordGate onUnlock={() => setUnlocked(true)} />;
   }
 
-  return <AdminPanel />;
+  return <AdminShell />;
 }

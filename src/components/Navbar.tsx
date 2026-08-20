@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith("/vault_controlpanel");
+
+  if (isAdminRoute) return null;
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-6 pt-4">
       <nav
