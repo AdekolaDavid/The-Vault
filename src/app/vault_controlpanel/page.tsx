@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { verifyAdminPassword } from "./actions";
 
 const CATEGORIES = ["Buttons", "Checkboxes", "Toggle switches", "Cards", "Loaders", "Inputs", "Radio buttons", "Forms"];
 const INTERACTION_TYPES = ["passive", "clickable", "hoverable", "inputable"];
@@ -17,7 +16,6 @@ const DANGER = "#ef4444";
 const MONO = "JetBrains Mono, monospace";
 
 const MAX_ATTEMPTS = 3;
-const SESSION_KEY = "vault_admin_unlocked";
 const CONFIRM_WINDOW_MS = 3000;
 
 const inputStyle = {
@@ -75,10 +73,22 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
     setLoading(true);
     setError(null);
 
-    const valid = await verifyAdminPassword(password);
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+    if (!adminEmail) {
+      setError("Admin email is not configured (NEXT_PUBLIC_ADMIN_EMAIL missing in .env.local).");
+      setLoading(false);
+      return;
+    }
 
-    if (valid) {
-      sessionStorage.setItem(SESSION_KEY, "1");
+    // Real Supabase Auth sign-in — replaces the old env-var string compare.
+    // The single password field is unchanged; it's now checked against your
+    // actual Supabase Auth user instead of a plain ADMIN_PASSWORD value.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: adminEmail,
+      password,
+    });
+
+    if (!signInError) {
       onUnlock();
     } else {
       const newAttempts = attempts + 1;
@@ -522,11 +532,17 @@ function ManageView() {
     const previous = components;
     setComponents(list => list.filter(c => c.id !== id)); // optimistic
 
-    const { error } = await supabase.from("components").delete().eq("id", id);
+    // .select() forces Supabase to return the rows it actually deleted.
+    // A blocked RLS policy reports success with zero rows and NO error,
+    // so checking `error` alone isn't enough — we have to check the count too.
+    const { data, error } = await supabase.from("components").delete().eq("id", id).select();
 
     if (error) {
-      setComponents(previous); // revert on failure
+      setComponents(previous);
       setError(`Failed to delete: ${error.message}`);
+    } else if (!data || data.length === 0) {
+      setComponents(previous);
+      setError("Delete was blocked (0 rows affected) — likely a missing RLS policy on the components table.");
     }
     setDeletingId(null);
   }
@@ -643,6 +659,12 @@ function ManageView() {
 function AdminShell() {
   const [tab, setTab] = useState<"add" | "manage">("add");
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    // VaultAdminPage's onAuthStateChange listener picks this up and flips
+    // back to PasswordGate automatically — no local state needed here.
+  }
+
   return (
     <div
       className="flex flex-col h-screen overflow-hidden"
@@ -704,15 +726,38 @@ function AdminShell() {
           ))}
         </div>
 
-        <div
-          className="flex items-center gap-2"
-          style={{ fontSize: "10px", color: MUTED, letterSpacing: "0.1em", textTransform: "uppercase" }}
-        >
-          <span
-            className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ background: ACCENT }}
-          />
-          Admin
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleSignOut}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "7px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "transparent",
+              color: MUTED,
+              fontFamily: MONO,
+              fontSize: "9px",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+          >
+            Sign Out
+          </button>
+          <div
+            className="flex items-center gap-2"
+            style={{ fontSize: "10px", color: MUTED, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          >
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: ACCENT }}
+            />
+            Admin
+          </div>
         </div>
       </div>
 
@@ -729,9 +774,24 @@ export default function VaultAdminPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const isUnlocked = sessionStorage.getItem(SESSION_KEY) === "1";
-    setUnlocked(isUnlocked);
-    setChecking(false);
+    let active = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setUnlocked(!!data.session);
+      setChecking(false);
+    });
+
+    // Keeps `unlocked` in sync with real auth state — Sign Out (or an
+    // expired token) flips this back to false with no extra wiring.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUnlocked(!!session);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   if (checking) return null;
