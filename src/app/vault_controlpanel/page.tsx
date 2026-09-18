@@ -477,6 +477,54 @@ function AddComponentView() {
   );
 }
 
+// Renders a component's real markup/CSS in an isolated iframe so that two
+// components both defining, say, `.btn`, can never bleed into each other —
+// the same collision risk that ruled out inline dangerouslySetInnerHTML
+// thumbnails in Session 10. No `allow-scripts`: these are static visual
+// references for telling components apart at a glance, not interactive.
+function ComponentThumbnail({ html, css }: { html: string; css: string }) {
+  const srcDoc = `<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; display: flex; align-items: center; justify-content: center; background: transparent; overflow: hidden; }
+      ${css}
+    </style>
+  </head>
+  <body>${html || ""}</body>
+</html>`;
+
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden"
+      style={{
+        width: "96px",
+        height: "64px",
+        borderRadius: "8px",
+        border: "1px solid rgba(255,255,255,0.06)",
+        background: "#050608",
+        backgroundImage: "radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)",
+        backgroundSize: "10px 10px",
+      }}
+    >
+      <iframe
+        srcDoc={srcDoc}
+        title="Component preview"
+        sandbox=""
+        style={{
+          width: "384px",
+          height: "256px",
+          border: "none",
+          transform: "scale(0.25)",
+          transformOrigin: "top left",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
 // ─── MANAGE VIEW ───────────────────────────────────────────────────
 type VaultComponentRow = {
   id: string;
@@ -484,6 +532,8 @@ type VaultComponentRow = {
   category: string;
   style_system: string;
   interaction_type: string;
+  code_snippet: string;
+  css_tokens: string;
 };
 
 function ManageView() {
@@ -499,7 +549,7 @@ function ManageView() {
     setError(null);
     const { data, error } = await supabase
       .from("components")
-      .select("id, title, category, style_system, interaction_type")
+      .select("id, title, category, style_system, interaction_type, code_snippet, css_tokens")
       .order("title", { ascending: true });
 
     if (error) setError(error.message);
@@ -603,24 +653,27 @@ function ManageView() {
                   opacity: isDeleting ? 0.5 : 1,
                 }}
               >
-                <div className="flex flex-col gap-2 min-w-0">
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      fontFamily: MONO,
-                      fontWeight: 600,
-                      color: TEXT,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {comp.title}
-                  </span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span style={pillStyle("neutral")}>{comp.category}</span>
-                    <span style={pillStyle("accent")}>{comp.style_system}</span>
-                    <span style={pillStyle("muted")}>{comp.interaction_type}</span>
+                <div className="flex items-center gap-4 min-w-0">
+                  <ComponentThumbnail html={comp.code_snippet} css={comp.css_tokens} />
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontFamily: MONO,
+                        fontWeight: 600,
+                        color: TEXT,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {comp.title}
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span style={pillStyle("neutral")}>{comp.category}</span>
+                      <span style={pillStyle("accent")}>{comp.style_system}</span>
+                      <span style={pillStyle("muted")}>{comp.interaction_type}</span>
+                    </div>
                   </div>
                 </div>
 
