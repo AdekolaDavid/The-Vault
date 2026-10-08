@@ -20,17 +20,38 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/components?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          # Strip stray whitespace/newlines (common when pasting secrets)
+          # and any trailing slash on the URL.
+          SUPABASE_URL=$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]')
+          SUPABASE_URL="${SUPABASE_URL%/}"
+          SUPABASE_ANON_KEY=$(printf '%s' "$SUPABASE_ANON_KEY" | tr -d '[:space:]')
 
-          echo "Supabase responded with HTTP $status"
-
-          # Fail the job on any non-2xx so GitHub emails you. That email is
-          # your early warning if the project is already paused or the key
-          # was rotated.
-          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
-            echo "::error::Supabase ping failed with HTTP $status"
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_ANON_KEY secret is missing or empty. Add both under Settings > Secrets and variables > Actions."
             exit 1
           fi
+
+          case "$SUPABASE_URL" in
+            https://*.supabase.co) ;;
+            *)
+              echo "::error::SUPABASE_URL must look like https://<project-ref>.supabase.co (no path, no dashboard link)."
+              exit 1
+              ;;
+          esac
+
+          # `|| true` stops a curl network error from killing the step
+          # before we can report it.
+          status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 \
+            "$SUPABASE_URL/rest/v1/components?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY") || true
+
+          echo "Supabase responded with HTTP ${status:-none}"
+
+          # Fail on any non-2xx so GitHub emails you. That email is your
+          # early warning if the project is paused or the key was rotated.
+          case "$status" in
+            2??) ;;
+            000|"") echo "::error::Could not reach Supabase. Check the URL secret, or the project may be paused."; exit 1 ;;
+            *) echo "::error::Supabase ping failed with HTTP $status"; exit 1 ;;
+          esac
